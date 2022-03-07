@@ -15,10 +15,10 @@ class DataAugmentation:
         def _scale_coordinate(coordinate, size):
             return int(self.image_size*coordinate/size)
 
-        bb_ymin = _scale_coordinate(bounding_box[0], original_width)
-        bb_xmin = _scale_coordinate(bounding_box[1], original_height)
-        bb_ymax = _scale_coordinate(bounding_box[2], original_width)
-        bb_xmax = _scale_coordinate(bounding_box[3], original_height)
+        bb_xmin = _scale_coordinate(bounding_box[0], original_width)
+        bb_ymin = _scale_coordinate(bounding_box[1], original_height)
+        bb_xmax = _scale_coordinate(bounding_box[2], original_width)
+        bb_ymax = _scale_coordinate(bounding_box[3], original_height)
 
         return [bb_xmin, bb_ymin, bb_xmax, bb_ymax]
 
@@ -166,10 +166,10 @@ class DataAugmentation:
         return False
 
 
-    def _calculate_position_without_overlap(self, object_shape, image_boxes):
+    def _calculate_position_without_overlap(self, object_shape, image_boxes, num_tries=10):
         exists_overlap = True
         tries = 0
-        while exists_overlap and tries < 20:
+        while exists_overlap and tries < num_tries:
             position = self._calculate_position(object_shape)
             exists_overlap = self._check_overlap(image_boxes, position, object_shape)
             tries += 1
@@ -194,48 +194,61 @@ class DataAugmentation:
         return image
 
 
-    def _add_objects_to_image(self, image_data, segmentation_data, num_objects, overlap_possible):
-        image_boxes = image_data['boxes']
-        num_placed_objects = 0
+    def _add_objects_to_image(self, index, train_data, train_classes, segmentation_indices, num_objects, overlap_possible):
+        image_data = train_data[index]
+        image_classes = train_classes[index]
 
-        while num_placed_objects < num_objects:
+        num_placed = 0
+        num_tries = 0
 
-            indices = np.random.choice(len(segmentation_data), num_objects)
+        while num_placed < num_objects and num_tries < 20:
 
-            for index in indices:
-                data_i = segmentation_data[index]
+            num_tries += 1
 
-                if data_i['name'] == image_data['name']:
-                    continue
+            index = np.random.choice(len(segmentation_indices))
+            segmentation_index = segmentation_indices[index]
 
-                object_idx = np.random.choice(len(data_i['objects']))
-                object = data_i['objects'][object_idx]
-                mask = data_i['masks'][object_idx]
-                class_index = data_i['classes'][object_idx]
+            data = train_data[segmentation_index]
+            classes = train_classes[segmentation_index]
+        
+            if data['name'] == image_data['name'] or data['name'] in image_data['names_used']:
+                continue
+            
+            index = np.random.choice(len(data['objects']))
+            object = data['objects'][index]
+            mask = data['masks'][index]
+            class_index = classes[index]
 
-                transformed_object, transformed_mask = self._transform(object, mask)
-                shape = transformed_object.shape
+            transformed_object, transformed_mask = self._transform(object, mask)
+            shape = transformed_object.shape
 
-                if not overlap_possible:
-                    object_position = self._calculate_position_without_overlap(shape, image_boxes)
-                else:
-                    object_position = self._calculate_position(shape)
+            if not overlap_possible:
+                object_position = self._calculate_position_without_overlap(shape, image_data['boxes'])
+            else:
+                object_position = self._calculate_position(shape)
 
-                if object_position is None:
-                    continue
+            if object_position is None:
+                continue
 
-                # The bounding box inside the image where we want to add the object
-                bounding_box = [*object_position, object_position[0] + shape[0], 
-                    object_position[1] + shape[1]]
+            # The bounding box inside the image where we want to add the object
+            bounding_box = [object_position[1], object_position[0], object_position[1] + shape[1] - 1, 
+                object_position[0] + shape[0] - 1]
 
-                num_placed_objects += 1
-                distorted_image = self._add_object_to_image(image_data['image'], transformed_object, object_position, 
-                    transformed_mask)
-                image_data['image'] = distorted_image
-                image_data['boxes'].append(bounding_box)
-                image_data['classes'].append(class_index)
+            num_placed += 1
+
+            distorted_image = self._add_object_to_image(image_data['image'], transformed_object, object_position, 
+                transformed_mask)
+
+            image_data['image'] = distorted_image
+            image_data['boxes'].append(bounding_box)
+            image_classes.append(class_index)
+            image_data['names_used'].append(data['name'])
 
 
-    def corrupt_training_images(self, images_data, segmentation_data, num_objects, overlap_possible, transform_objects=True, equal_classes=False):
-        for image_data in images_data:
-            self._add_objects_to_image(image_data, segmentation_data, num_objects, overlap_possible)
+    def corrupt_training_images(self, train_data, train_classes, segmentation_indices, num_objects, 
+        overlap_possible, transform_objects=True, equal_classes=False):
+        
+        for index in range(len(train_data)):
+            
+            self._add_objects_to_image(index, train_data, train_classes, segmentation_indices, num_objects, overlap_possible)
+            
