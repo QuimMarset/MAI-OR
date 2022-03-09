@@ -5,8 +5,8 @@ from load_utils import get_segmentation, save_segmentations, read_image, read_an
 from other_utils import get_box_from_mask
 
 
-def extract_segmentations_image(image_path, segmentation_path, image_name, bounding_boxes, image_size):
-    segmentation_image = get_segmentation(segmentation_path, image_name)
+def extract_segmentations_image(image_path, segmentations_path, image_name, bounding_boxes, image_size):
+    segmentation_image = get_segmentation(segmentations_path, image_name)
     image = read_image(image_path, image_name, image_size)
 
     objects_plus_masks = []
@@ -43,18 +43,15 @@ def extract_segmentations_image(image_path, segmentation_path, image_name, bound
     return objects_plus_masks
 
 
-def extract_segmentations(dataset_path, segmentation_folder, annotations_folder):
-    segmentation_path = os.path.join(dataset_path, segmentation_folder)
-    annotations_path = os.path.join(dataset_path, annotations_folder)
-    
-    image_names = os.listdir(segmentation_path)
+def extract_segmentations(segmentations_path, annotations_path):
+    image_names = os.listdir(segmentations_path)
 
     segmentation_objects = {}
 
     for image_name in image_names:
         classes, bounding_boxes, _, _ = read_annotation_file(annotations_path, image_name)
 
-        objects, classes = extract_segmentations_image(segmentation_path, image_name, bounding_boxes)
+        objects, classes = extract_segmentations_image(segmentations_path, image_name, bounding_boxes)
         segmentation_objects[image_name] = (objects, classes)
 
     save_segmentations(segmentation_objects)

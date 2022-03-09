@@ -9,8 +9,13 @@ from segmentation_utils import extract_segmentations, filter_segmentations_train
 
 if __name__ == "__main__":
 
-    root_path = './Assignment 1'
+    root_path = "./"
     train_val_path = os.path.join(root_path, 'VOCtrainval_06-Nov-2007', 'VOCdevkit', 'VOC2007')
+    segmentations_path = os.path.join(train_val_path, "SegmentationObject")
+    annotations_path = os.path.join(train_val_path, "Annotations")
+    images_path = os.path.join(train_val_path, "JPEGImages")
+
+    pickle_path = os.path.join(root_path, "segmentations.pkl")
 
     seed = 1412
     image_size = 224
@@ -22,10 +27,10 @@ if __name__ == "__main__":
     images_names = os.listdir(train_val_path)
     num_images = len(images_names)
 
-    if not exists_segmentations_pickle():
-        segmentation_objects = extract_segmentations()
+    if not exists_segmentations_pickle(pickle_path):
+        segmentation_objects = extract_segmentations(segmentations_path, annotations_path)
     else:
-        segmentation_objects = load_segmentations_pickle()
+        segmentation_objects = load_segmentations_pickle(pickle_path)
 
     train_names, val_names = create_train_val_split(images_names, val_percentage)
 

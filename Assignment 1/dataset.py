@@ -9,12 +9,9 @@ from other_utils import to_one_hot, scale_bounding_box
 
 class Dataset:
 
-    def __init__(self, dataset_path, image_names, image_size, seed=0):
-        self.segmentation_folder = "SegmentationObject"
-        self.annotation_folder = "Annotations"
-        self.images_folder = "JPEGImages"
-
-        self.dataset_path = dataset_path
+    def __init__(self, images_path, annotations_path, image_names, image_size, seed=0):
+        self.images_path = images_path
+        self.annotations_path = annotations_path
         self.images_names = image_names
 
         self.image_size = image_size
@@ -41,12 +38,9 @@ class Dataset:
         batch_images = np.zeros((batch_size, self.image_size, self.image_size, 3))
         batch_classes = np.zeros((batch_size, self.num_classes))
 
-        image_path = os.path.join(self.dataset_path, self.images_folder)
-        annot_path = os.path.join(self.dataset_path, self.annotation_folder)
-
         for (index, image_name) in enumerate(batch_names):
-            image = read_image(image_path, image_name, self.image_size)
-            classes, _, _, _ = read_annotation_file(annot_path, image_name)
+            image = read_image(self.images_path, image_name, self.image_size)
+            classes, _, _, _ = read_annotation_file(self.annotations_path, image_name)
             
             batch_images[index] = image
             batch_classes[index] = to_one_hot(classes)
@@ -56,8 +50,8 @@ class Dataset:
 
 class TrainDataset(Dataset):
 
-    def __init__(self, dataset_path, image_names, image_size, segmentation_objects, augmentation_mode=0, seed=0):
-        super.__init__(dataset_path, image_names, image_size, seed)
+    def __init__(self, images_path, annotations_path, image_names, image_size, segmentation_objects, augmentation_mode=0, seed=0):
+        super.__init__(images_path, annotations_path, image_names, image_size, seed)
         self.segmentation_objects = segmentation_objects
 
 
@@ -66,12 +60,9 @@ class TrainDataset(Dataset):
         batch_images = np.zeros((batch_size, self.image_size, self.image_size, 3))
         batch_classes = np.zeros((batch_size, self.num_classes))
 
-        image_path = os.path.join(self.dataset_path, self.images_folder)
-        annot_path = os.path.join(self.dataset_path, self.annotation_folder)
-
         for (index, image_name) in enumerate(batch_names):
-            image = read_image(image_path, image_name, self.image_size)
-            classes, boxes, width, height = read_annotation_file(annot_path, image_name)
+            image = read_image(self.images_path, image_name, self.image_size)
+            classes, boxes, width, height = read_annotation_file(self.annotations_path, image_name)
             scaled_boxes = [scale_bounding_box(bb, self.image_size, width, height) for bb in boxes] 
 
             if self.augmentation:

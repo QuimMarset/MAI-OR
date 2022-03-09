@@ -6,8 +6,8 @@ from skimage import img_as_float
 import pickle
 
 
-def read_annotation_file(dataset_path, image_name):
-    file_path = os.path.join(dataset_path, f'{image_name}.xml')
+def read_annotation_file(annotations_path, image_name):
+    file_path = os.path.join(annotations_path, f'{image_name}.xml')
     tree = ET.parse(file_path)
     root = tree.getroot()
 
@@ -32,35 +32,35 @@ def read_annotation_file(dataset_path, image_name):
     return classes, bounding_box, width, height
 
 
-def read_image(dataset_path, image_name, image_size):
-    path = os.path.join(dataset_path, f'{image_name}.jpg')
+def read_image(images_path, image_name, image_size):
+    path = os.path.join(images_path, f'{image_name}.jpg')
     image = cv2.imread(path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image = img_as_float(cv2.resize(image, (image_size, image_size)))
     return image
 
 
-def exists_segmentation(dataset_path, image_name):
-    return os.path.exists(os.path.join(dataset_path, f'{image_name}.png'))
+def exists_segmentation(segmentations_path, image_name):
+    return os.path.exists(os.path.join(segmentations_path, f'{image_name}.png'))
 
 
-def get_segmentation(dataset_path, image_name):
-    path = os.path.join(dataset_path, f'{image_name}.png')
+def get_segmentation(segmentations_path, image_name):
+    path = os.path.join(segmentations_path, f'{image_name}.png')
     segmentation = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     return segmentation
 
 
-def exists_segmentations_pickle(root_path):
-    return os.path.exists(os.path.join(root_path, 'segmentations.pkl'))
+def exists_segmentations_pickle(path):
+    return os.path.exists(path)
 
 
-def save_segmentations(root_path, segmentation_objects):
-    with open("segmentations.pkl", "wb") as file:
+def save_segmentations(path, segmentation_objects):
+    with open(path, "wb") as file:
         pickle.dump(segmentation_objects, file)
 
 
-def load_segmentations_pickle():
-    with open("segmentations.pckl", "rb") as file:
+def load_segmentations_pickle(path):
+    with open(path, "rb") as file:
         segmentation_objects = pickle.load(file)
     return segmentation_objects
 
