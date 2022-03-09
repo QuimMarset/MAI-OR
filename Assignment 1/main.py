@@ -1,33 +1,42 @@
 import os
 import matplotlib.pyplot as plt
-from dataset import Dataset
+from dataset import Dataset, TrainDataset
 from generator import ImageGenerator
 from train import Trainer
+from load_utils import *
+from segmentation_utils import extract_segmentations, filter_segmentations_train
 
 
 if __name__ == "__main__":
 
     root_path = './Assignment 1'
     train_val_path = os.path.join(root_path, 'VOCtrainval_06-Nov-2007', 'VOCdevkit', 'VOC2007')
-    test_path = os.path.join('VOCtest_06-Nov-2007', 'VOCdevkit', 'VOC2007')
 
+    seed = 1412
     image_size = 224
     num_classes = 20
-
-    dataset = Dataset(train_val_path, test_path, 224)
-
-    train_images, val_images, train_classes, val_classes = dataset.get_train_val_data(val_percentage=0.2, 
-        data_augmentation=True, overlap_possible=False, num_objects=1, transform_objects=True)
-
-    print(f'Train length: {train_images.shape[0]}')
-    print(f'Validation length: {val_images.shape[0]}')
-
+    val_percentage = 0.2
     batch_size = 32
     num_epochs = 2
 
-    train_gen = ImageGenerator(batch_size, train_images, train_classes)
-    val_gen = ImageGenerator(batch_size, val_images, val_classes)
+    images_names = os.listdir(train_val_path)
+    num_images = len(images_names)
+
+    if not exists_segmentations_pickle():
+        segmentation_objects = extract_segmentations()
+    else:
+        segmentation_objects = load_segmentations_pickle()
+
+    train_names, val_names = create_train_val_split(images_names, val_percentage)
+
+    train_segmentations = filter_segmentations_train(segmentation_objects, train_names)
+    del segmentation_objects
+
+    train_dataset = TrainDataset(train_names, image_size, seed)
+    val_dataset = Dataset(val_names, image_size, seed)
+
+    train_generator = ImageGenerator(batch_size, train_dataset, seed)
+    val_generator = ImageGenerator(batch_size, val_dataset, seed)
 
     trainer = Trainer(image_size, num_classes)
-
-    trainer.train(num_epochs, train_gen, val_gen)
+    trainer.train(num_epochs, train_generator, val_generator)
