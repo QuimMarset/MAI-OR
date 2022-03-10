@@ -43,23 +43,23 @@ def extract_segmentations_image(image_path, segmentations_path, image_name, boun
     return objects_plus_masks
 
 
-def extract_segmentations(segmentations_path, annotations_path):
-    image_names = os.listdir(segmentations_path)
+def extract_segmentations(images_path, segmentations_path, annotations_path, image_size):
+    image_names = [image_file[:-4] for image_file in os.listdir(segmentations_path)]
 
     segmentation_objects = {}
 
     for image_name in image_names:
         classes, bounding_boxes, _, _ = read_annotation_file(annotations_path, image_name)
 
-        objects, classes = extract_segmentations_image(segmentations_path, image_name, bounding_boxes)
+        objects = extract_segmentations_image(images_path, segmentations_path, image_name, bounding_boxes, image_size)
         segmentation_objects[image_name] = (objects, classes)
 
-    save_segmentations(segmentation_objects)
+    return segmentation_objects
 
 
 def filter_segmentations_train(segmentation_objects, train_names):
     train_segmentations = []
-    for train_name in train_names:
-        if train_name in segmentation_objects:
-            train_segmentations.append(segmentation_objects[train_name])
+    for segmentation_name in segmentation_objects.keys():
+        if segmentation_name in train_names:
+            train_segmentations.append((*segmentation_objects[segmentation_name], segmentation_name))
     return train_segmentations

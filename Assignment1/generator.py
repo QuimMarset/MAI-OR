@@ -21,7 +21,7 @@ class ImageGenerator(keras.utils.Sequence):
         # Returns tuple (input, target) correspond to batch batch_index
         index = idx * self.batch_size
 
-        batch_images, batch_classes = self.dataset_loader.get_batch(index)
+        batch_images, batch_classes = self.dataset_loader.get_batch(index, self.batch_size)
         return batch_images, batch_classes
 
     def on_epoch_end(self):

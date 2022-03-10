@@ -1,13 +1,13 @@
 import numpy as np
 import cv2
-from skimage.transform import rotate, resize
+from skimage import transform
 from other_utils import get_box_from_mask
 
 
-def rotate(object, mask):
+def rotate_(object, mask):
     rotation_angle = np.random.randint(0, 360)
-    rotated_object = rotate(object, rotation_angle, resize=True)
-    rotated_mask = rotate(mask, rotation_angle, resize=True, order=0)
+    rotated_object = transform.rotate(object, rotation_angle, resize=True)
+    rotated_mask = transform.rotate(mask, rotation_angle, resize=True, order=0)
     return rotated_object, rotated_mask
 
 
@@ -15,7 +15,7 @@ def scale_mask(mask, new_width, new_height):
     return cv2.resize(mask, (new_height, new_width), interpolation=cv2.INTER_NEAREST)
 
 
-def scale(object, mask, image_size):
+def scale_(object, mask, image_size):
     width = object.shape[0]
     height = object.shape[1]
     
@@ -42,7 +42,7 @@ def scale(object, mask, image_size):
         new_width = new_size
         new_height = new_size
 
-    scaled_object = resize(object, (new_width, new_height))
+    scaled_object = transform.resize(object, (new_width, new_height))
     scaled_mask = scale_mask(mask, new_width, new_height)
     
     if np.all(scaled_mask == 0.0):
@@ -51,11 +51,11 @@ def scale(object, mask, image_size):
     return scaled_object, scaled_mask
 
 
-def transform(object, mask):
+def transform_(object, mask, image_size):
     copied_object = object.copy()
     copied_mask = mask.copy()
-    rotated_object, rotated_mask = rotate(copied_object, copied_mask)
-    scaled_object, scaled_mask = scale(rotated_object, rotated_mask)
+    rotated_object, rotated_mask = rotate_(copied_object, copied_mask)
+    scaled_object, scaled_mask = scale_(rotated_object, rotated_mask, image_size)
 
     # Need to get a new bounding box as the transformations have resized the image
     bounding_box = get_box_from_mask(scaled_mask)
@@ -105,11 +105,11 @@ def check_overlap(image_bounding_boxes, object_position, object_shape):
     return False
 
 
-def calculate_position_without_overlap(object_shape, image_boxes, num_tries=10):
+def calculate_position_without_overlap(object_shape, image_boxes, image_size, num_tries=10):
     exists_overlap = True
     tries = 0
     while exists_overlap and tries < num_tries:
-        position = calculate_position(object_shape)
+        position = calculate_position(object_shape, image_size)
         exists_overlap = check_overlap(image_boxes, position, object_shape)
         tries += 1
 
@@ -133,7 +133,7 @@ def add_object_to_image(image, object, position, mask):
     return image
 
 
-def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, max_tries=20):
+def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size, max_tries=100):
     num_placed = 0
     num_tries = 0
 
@@ -141,13 +141,17 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
         num_tries += 1
 
         index = np.random.choice(len(segmentation_objects))
-        object_plus_mask = segmentation_objects[index]
-        class_name = segmentation_objects[index]['class']
-        transformed_object, transformed_mask = transform(object_plus_mask)
+        objects_plus_masks, classes_names, _ = segmentation_objects[index]
+        
+        index2 = np.random.choice(len(objects_plus_masks))
+        object_plus_mask = objects_plus_masks[index2]
+        class_name = classes_names[index2]
+
+        transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
         shape = transformed_object.shape
 
         if not overlap:
-            object_position = calculate_position_without_overlap(shape, boxes)
+            object_position = calculate_position_without_overlap(shape, boxes, image_size)
         else:
             object_position = calculate_position(shape)
 

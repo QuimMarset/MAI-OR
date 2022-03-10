@@ -29,7 +29,7 @@ def read_annotation_file(annotations_path, image_name):
         bounding_box = [bb_xmin, bb_ymin, bb_xmax, bb_ymax]
         bounding_boxes.append(bounding_box)
 
-    return classes, bounding_box, width, height
+    return classes, bounding_boxes, width, height
 
 
 def read_image(images_path, image_name, image_size):
@@ -65,9 +65,21 @@ def load_segmentations_pickle(path):
     return segmentation_objects
 
 
-def create_train_val_split(num_images, val_percentage, seed):
+def create_train_val_split(image_names, val_percentage, seed):
     np.random.seed(seed)
+    
+    num_images = len(image_names)
     val_indices = np.random.randint(0, num_images, int(num_images*val_percentage))
     train_val_split = np.zeros(num_images)
     train_val_split[val_indices] = 1
-    return train_val_split
+
+    train_names = []
+    val_names = []
+
+    for (index, image_name) in enumerate(image_names):
+        if train_val_split[index]:
+            val_names.append(image_name)
+        else:
+            train_names.append(image_name)
+
+    return train_names, val_names
