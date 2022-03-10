@@ -50,7 +50,7 @@ def get_segmentation(segmentations_path, image_name):
     return segmentation
 
 
-def exists_segmentations_pickle(path):
+def exists_path(path):
     return os.path.exists(path)
 
 
@@ -83,3 +83,7 @@ def create_train_val_split(image_names, val_percentage, seed):
             train_names.append(image_name)
 
     return train_names, val_names
+
+
+def create_results_folder(path):
+    os.makedirs(path, exist_ok=True)

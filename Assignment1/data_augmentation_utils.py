@@ -5,56 +5,36 @@ from other_utils import get_box_from_mask
 
 
 def rotate_(object, mask):
-    rotation_angle = np.random.randint(0, 360)
+    rotation_angle = np.random.randint(-15, 15)
     rotated_object = transform.rotate(object, rotation_angle, resize=True)
     rotated_mask = transform.rotate(mask, rotation_angle, resize=True, order=0)
     return rotated_object, rotated_mask
 
 
-def scale_mask(mask, new_width, new_height):
-    return cv2.resize(mask, (new_height, new_width), interpolation=cv2.INTER_NEAREST)
-
-
 def scale_(object, mask, image_size):
-    width = object.shape[0]
-    height = object.shape[1]
+    min_factor = 0.8
+    max_factor = 1.2
+    max_dim = max(object.shape[0], object.shape[1])
+
+    if max_dim > image_size or max_dim*min_factor:
+        min_factor = (image_size - round(image_size/20))/max_dim
+        max_factor = (image_size - round(image_size/10))/max_dim
+
+    elif max_dim < image_size and max_dim*max_factor > image_size:
+        max_factor = 1.0
     
-    aspect_ratio = width / height
+    scale_factor = np.random.uniform(min_factor, max_factor)
+    scaled_object = transform.rescale(object, scale=scale_factor, multichannel=True)
+    scaled_mask = transform.rescale(mask, scale=scale_factor, order=0, anti_aliasing=False)
 
-    if max(width, height) < image_size/5:
-        factor = 0.5
-    else:
-        factor = 2
-
-    if width > height:
-        min_width = min(width/factor, image_size)
-        new_width = np.random.randint(min_width, image_size)
-        new_height = int(new_width / aspect_ratio)
-
-    elif height > width:
-        min_height = min(height/factor, image_size)
-        new_height = np.random.randint(min_height, image_size)
-        new_width = int(aspect_ratio * new_height)
-
-    else:
-        min_size = min(width/factor, image_size)
-        new_size = np.random.randint(min_size, image_size)
-        new_width = new_size
-        new_height = new_size
-
-    scaled_object = transform.resize(object, (new_width, new_height))
-    scaled_mask = scale_mask(mask, new_width, new_height)
-    
-    if np.all(scaled_mask == 0.0):
-        return object, mask
+    if scaled_object.shape[0] > image_size or scaled_object.shape[1] > image_size:
+        print(object.shape, scaled_object.shape, scale_factor)
 
     return scaled_object, scaled_mask
 
 
 def transform_(object, mask, image_size):
-    copied_object = object.copy()
-    copied_mask = mask.copy()
-    rotated_object, rotated_mask = rotate_(copied_object, copied_mask)
+    rotated_object, rotated_mask = rotate_(object, mask)
     scaled_object, scaled_mask = scale_(rotated_object, rotated_mask, image_size)
 
     # Need to get a new bounding box as the transformations have resized the image
@@ -133,7 +113,7 @@ def add_object_to_image(image, object, position, mask):
     return image
 
 
-def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size, max_tries=100):
+def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size, max_tries=50):
     num_placed = 0
     num_tries = 0
 
@@ -149,6 +129,9 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
 
         transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
         shape = transformed_object.shape
+
+        if shape[0] >= image_size or shape[1] >= image_size:
+            print(shape)
 
         if not overlap:
             object_position = calculate_position_without_overlap(shape, boxes, image_size)
