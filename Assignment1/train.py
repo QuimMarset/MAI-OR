@@ -1,12 +1,7 @@
 import matplotlib.pyplot as plt
 import os
 import tensorflow as tf
-import typing
 from tensorflow import keras
-
-if typing.TYPE_CHECKING:
-    from keras.api._v2 import keras
-
 from model_utils import create_model
 
 
@@ -45,21 +40,21 @@ class Trainer:
         return 2 * (precision * recall) / (precision + recall + 1e-8)
 
 
-    def plot_metric(self, train_metric, val_metric, experiment_name, metric_name):
+    def plot_metric(self, train_metric, val_metric, experiment_file, experiment_title, metric_name):
         plt.figure(figsize=(8, 6))
         plt.plot(train_metric, label=f'Train {metric_name}')
         plt.plot(val_metric, label=f'Val {metric_name}')
         plt.legend()
-        plt.title(f'{metric_name} results using {self.model_name} and {experiment_name}')
+        plt.title(f'{metric_name} results using {self.model_name} and {experiment_title}')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.results_path, f'{experiment_name}_{metric_name}.png'))
+        plt.savefig(os.path.join(self.results_path, f'{experiment_file}_{metric_name}.png'))
 
 
-    def train(self, num_epochs, train_gen, val_gen, experiment_name):
+    def train(self, num_epochs, train_gen, val_gen, experiment_file, experiment_title):
         fit_results = self.model.fit(train_gen, epochs=num_epochs, validation_data=val_gen)
         #self.model.save_weights(os.path.join(self.model_path, self.model_name, 'model.h5'))
 
         history = fit_results.history
-        self.plot_metric(history['loss'], history['val_loss'], experiment_name, 'Loss')
-        self.plot_metric(history['auc'], history['val_auc'], experiment_name, 'AUC')
-        self.plot_metric(history['f1_metric'], history['val_f1_metric'], experiment_name, 'F1-score')
+        self.plot_metric(history['loss'], history['val_loss'], experiment_file, experiment_title, 'Loss')
+        self.plot_metric(history['auc'], history['val_auc'], experiment_file, experiment_title, 'AUC')
+        self.plot_metric(history['f1_metric'], history['val_f1_metric'], experiment_file, experiment_title, 'F1-score')

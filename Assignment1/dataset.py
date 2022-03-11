@@ -56,14 +56,27 @@ class Dataset:
 class AugmentationMode(IntEnum):
     NoAugmentation = 1
     Augmentation = 2
-    AugmentationTransform = 3
-    AugmentationSameProportion = 4
+    AugmentationOverlap = 3
+    AugmentationTransform = 4
+    AugmentationSameProportion = 5
+
+    def __str__(self):
+        if self == AugmentationMode.NoAugmentation:
+            return "no augmentation"
+        elif self == AugmentationMode.Augmentation:
+            return "augmentation without overlapping"
+        elif self == AugmentationMode.AugmentationOverlap:
+            return "augmentation with overlapping"
+        elif self == AugmentationMode.AugmentationTransform:
+            return "augmentation transforming the object"
+        elif self == AugmentationMode.AugmentationSameProportion:
+            return "augmentation keeping proportions"
 
 
 class TrainDataset(Dataset):
 
     def __init__(self, images_path, annotations_path, image_names, image_size, segmentation_objects, augmentation_mode, 
-        overlap, num_to_place, prob_augment=0.5, seed=0):
+        overlap, num_to_place, possible_positions, prob_augment=0.5, seed=0):
         
         super().__init__(images_path, annotations_path, image_names, image_size, seed)
         self.segmentation_objects = segmentation_objects
@@ -72,6 +85,7 @@ class TrainDataset(Dataset):
         self.num_to_place = num_to_place
         self.prob_augment = prob_augment
         self.transform = augmentation_mode == AugmentationMode.AugmentationTransform
+        self.possible_positions = possible_positions
 
 
     def load_batch(self, batch_names):
@@ -86,7 +100,7 @@ class TrainDataset(Dataset):
             if self.augmentation_mode > AugmentationMode.NoAugmentation and random.random() < self.prob_augment:
                 scaled_boxes = [scale_bounding_box(bb, self.image_size, width, height) for bb in boxes]
 
-                image, classes = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, 
+                image, classes = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, self.possible_positions[image_name],
                     self.num_to_place, self.overlap, self.image_size)
             
             batch_images[index] = image

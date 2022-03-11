@@ -72,7 +72,7 @@ def compute_IoU(bounding_box_1, bounding_box_2):
 
 def are_overlapping(bounding_box_1, bounding_box_2):
     IoU = compute_IoU(bounding_box_1, bounding_box_2)
-    return IoU > 0
+    return IoU > 0.15
 
 
 def check_overlap(image_bounding_boxes, object_position, object_shape):
@@ -88,6 +88,7 @@ def check_overlap(image_bounding_boxes, object_position, object_shape):
 def calculate_position_without_overlap(object_shape, image_boxes, image_size, num_tries=10):
     exists_overlap = True
     tries = 0
+
     while exists_overlap and tries < num_tries:
         position = calculate_position(object_shape, image_size)
         exists_overlap = check_overlap(image_boxes, position, object_shape)
@@ -113,9 +114,10 @@ def add_object_to_image(image, object, position, mask):
     return image
 
 
-def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size, max_tries=50):
+def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size):
     num_placed = 0
     num_tries = 0
+    max_tries = num_to_place*5
 
     while num_placed < num_to_place and num_tries < max_tries:
         num_tries += 1
@@ -130,13 +132,10 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
         transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
         shape = transformed_object.shape
 
-        if shape[0] >= image_size or shape[1] >= image_size:
-            print(shape)
-
         if not overlap:
             object_position = calculate_position_without_overlap(shape, boxes, image_size)
         else:
-            object_position = calculate_position(shape)
+            object_position = calculate_position(shape, image_size)
 
         if object_position is None:
             continue
@@ -152,59 +151,3 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
         boxes.append(bounding_box)
 
     return image, classes
-
-
-
-
-
-"""
-def add_objects_to_image(index, train_data, train_classes, segmentation_indices, num_objects, overlap_possible):
-    image_data = train_data[index]
-    image_classes = train_classes[index]
-
-    num_placed = 0
-    num_tries = 0
-
-    while num_placed < num_objects and num_tries < 20:
-
-        num_tries += 1
-
-        index = np.random.choice(len(segmentation_indices))
-        segmentation_index = segmentation_indices[index]
-
-        data = train_data[segmentation_index]
-        classes = train_classes[segmentation_index]
-    
-        if data['name'] == image_data['name'] or data['name'] in image_data['names_used']:
-            continue
-        
-        index = np.random.choice(len(data['objects']))
-        object = data['objects'][index]
-        mask = data['masks'][index]
-        class_index = classes[index]
-
-        transformed_object, transformed_mask = self._transform(object, mask)
-        shape = transformed_object.shape
-
-        if not overlap_possible:
-            object_position = self._calculate_position_without_overlap(shape, image_data['boxes'])
-        else:
-            object_position = self._calculate_position(shape)
-
-        if object_position is None:
-            continue
-
-        # The bounding box inside the image where we want to add the object
-        bounding_box = [object_position[1], object_position[0], object_position[1] + shape[1] - 1, 
-            object_position[0] + shape[0] - 1]
-
-        num_placed += 1
-
-        distorted_image = self._add_object_to_image(image_data['image'], transformed_object, object_position, 
-            transformed_mask)
-
-        image_data['image'] = distorted_image
-        image_data['boxes'].append(bounding_box)
-        image_classes.append(class_index)
-        image_data['names_used'].append(data['name'])
-"""

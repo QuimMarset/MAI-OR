@@ -10,6 +10,10 @@ from model_utils import mobile_name, resnet_name, inception_name
 
 if __name__ == "__main__":
 
+    # ==========================
+    # Constants
+    # ==========================
+
     root_path = "./Assignment1"
     train_val_path = os.path.join(root_path, 'VOCtrainval_06-Nov-2007', 'VOCdevkit', 'VOC2007')
     segmentations_path = os.path.join(train_val_path, "SegmentationObject")
@@ -33,15 +37,20 @@ if __name__ == "__main__":
     num_epochs = 5
 
     num_to_place = 3
-    overlap = False
     augmentation_mode = AugmentationMode.AugmentationTransform
+    overlap = True
 
-
-    start_time = time.time()
+    # ==========================
+    # List images
+    # ==========================
 
     images_names = [image_file[:-4] for image_file in os.listdir(images_path)]
     random.Random(seed).shuffle(images_names)
     num_images = len(images_names)
+
+    # ==========================
+    # Get segmentation objects
+    # ==========================
 
     if not exists_path(results_path):
         create_results_folder(results_path)
@@ -52,6 +61,9 @@ if __name__ == "__main__":
     else:
         segmentation_objects = load_segmentations_pickle(pickle_path)
 
+    # ==========================
+    # Create train and val sets
+    # ==========================
 
     train_names, val_names = create_train_val_split(images_names, val_percentage, seed)
 
@@ -66,7 +78,13 @@ if __name__ == "__main__":
     train_generator = ImageGenerator(batch_size, train_dataset, seed)
     val_generator = ImageGenerator(batch_size, val_dataset, seed)
 
-    print(f'Time: {time.time() - start_time} seconds')
+    # ==========================
+    # Train the model
+    # ==========================
 
     trainer = Trainer(results_path, model_path, model_name, image_size, num_classes, fine_tune=False)
-    trainer.train(num_epochs, train_generator, val_generator, 'No augmentation')
+
+    experiment_name_file = f'{augmentation_mode.name}_{num_to_place}'
+    experiment_name_title = str(augmentation_mode.name) + f" placing {num_to_place} objects"
+
+    trainer.train(num_epochs, train_generator, val_generator, experiment_name_file, experiment_name_title)
