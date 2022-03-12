@@ -20,7 +20,7 @@ def create_mobile_model(image_size, num_classes, fine_tune):
 
 def create_resnet_model(image_size, num_classes, fine_tune):
     input_shape = (image_size, image_size, 3)
-    resnet = keras.applications.Res50(input_shape, include_top=False, pooling='avg')
+    resnet = keras.applications.ResNet50(input_shape=input_shape, include_top=False, pooling='avg')
     resnet.trainable = fine_tune
 
     input = keras.Input(input_shape)

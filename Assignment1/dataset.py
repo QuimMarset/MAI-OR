@@ -54,17 +54,15 @@ class Dataset:
 
 class TrainDataset(Dataset):
 
-    def __init__(self, images_path, annotations_path, image_names, image_size, segmentation_objects, augmentation_mode, 
-        overlap, num_to_place, possible_positions, prob_augment=0.5, seed=0):
+    def __init__(self, images_path, annotations_path, image_names, image_size, segmentation_objects, 
+        augmentation_mode, num_to_place, prob_augment=0.5, seed=0):
         
         super().__init__(images_path, annotations_path, image_names, image_size, seed)
         self.segmentation_objects = segmentation_objects
         self.augmentation_mode = augmentation_mode
-        self.overlap = overlap
         self.num_to_place = num_to_place
         self.prob_augment = prob_augment
-        self.transform = augmentation_mode == AugmentationMode.AugmentationTransform
-        self.possible_positions = possible_positions
+        self.overlap = augmentation_mode == AugmentationMode.AugmentationOverlap
 
 
     def load_batch(self, batch_names):
@@ -79,7 +77,7 @@ class TrainDataset(Dataset):
             if self.augmentation_mode > AugmentationMode.NoAugmentation and random.random() < self.prob_augment:
                 scaled_boxes = [scale_bounding_box(bb, self.image_size, width, height) for bb in boxes]
 
-                image, classes = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, self.possible_positions[image_name],
+                image, classes = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, 
                     self.num_to_place, self.overlap, self.image_size)
             
             batch_images[index] = image

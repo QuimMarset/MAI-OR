@@ -71,7 +71,7 @@ if __name__ == "__main__":
     del segmentation_objects
 
     train_dataset = TrainDataset(images_path, annotations_path, train_names, image_size, train_segmentations, 
-        augmentation_mode, overlap, num_to_place, prob_augment, seed)
+        augmentation_mode, num_to_place, prob_augment, seed)
 
     val_dataset = Dataset(images_path, annotations_path, val_names, image_size, seed)
 
