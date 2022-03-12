@@ -1,4 +1,5 @@
 import numpy as np
+from enum import IntEnum
 
 
 def to_one_hot(classes, num_classes, classes_dict):
@@ -24,3 +25,11 @@ def scale_bounding_box(bounding_box, image_size, original_width, original_height
     bb_ymax = _scale_coordinate(bounding_box[3], original_height)
 
     return [bb_xmin, bb_ymin, bb_xmax, bb_ymax]
+
+
+class AugmentationMode(IntEnum):
+    NoAugmentation = 1
+    Augmentation = 2
+    AugmentationOverlap = 3
+    AugmentationTransform = 4
+    AugmentationSameProportion = 5

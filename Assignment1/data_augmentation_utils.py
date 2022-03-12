@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 from skimage import transform
 from other_utils import get_box_from_mask
+import os
+from other_utils import scale_bounding_box
+from load_utils import read_annotation_file
 
 
 def rotate_(object, mask):
@@ -85,19 +88,48 @@ def check_overlap(image_bounding_boxes, object_position, object_shape):
     return False
 
 
-def calculate_position_without_overlap(object_shape, image_boxes, image_size, num_tries=10):
-    exists_overlap = True
-    tries = 0
+def calculate_empty_positions(image_size, bounding_boxes):
+    empty = np.zeros((image_size, image_size))
+    for bounding_box in bounding_boxes:
+        [col1, row1, col2, row2] = bounding_box
+        empty[row1:row2+1, col1:col2+1] = 1.0
 
-    while exists_overlap and tries < num_tries:
-        position = calculate_position(object_shape, image_size)
+    indices = np.where(empty == 0.0)
+    zipped = list(zip(indices[0], indices[1]))
+    empty_pos = np.empty(len(zipped), dtype=object)
+    empty_pos[:] = zipped
+    
+    return empty_pos
+
+
+def calculate_empty_positions_all(annotations_path, image_size):
+    positions = {}
+    image_names = [image_file[:-4] for image_file in os.listdir(annotations_path)]
+
+    for image_name in image_names:
+        _, bounding_boxes, width, height = read_annotation_file(annotations_path, image_name)
+        scaled_boxes = [scale_bounding_box(bb, image_size, width, height) for bb in bounding_boxes]
+
+        positions[image_name] = calculate_empty_positions(image_size, scaled_boxes)
+
+    return positions
+
+
+def calculate_position_without_overlap(empty_positions, object_shape, image_boxes, image_size, max_tries=5):
+    filtered_pos = empty_positions[empty_positions + object_shape < (image_size, image_size)]
+    exists_overlap = True
+    num_tries = 0
+
+    while exists_overlap and num_tries < max_tries:
+        position = filtered_pos[np.random.choice(len(filtered_pos))]
         exists_overlap = check_overlap(image_boxes, position, object_shape)
-        tries += 1
+        num_tries += 1
 
     if not exists_overlap:
-        return position
+        empty_positions = empty_positions[(empty_positions < position) | (empty_positions > position + object_shape)]
+        return position, empty_positions
     else:
-        return None
+        return None, None
 
 
 def add_object_to_image(image, object, position, mask):
@@ -119,6 +151,8 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
     num_tries = 0
     max_tries = num_to_place*5
 
+    empty_positions = calculate_empty_positions(image_size, boxes)
+
     while num_placed < num_to_place and num_tries < max_tries:
         num_tries += 1
 
@@ -133,12 +167,11 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
         shape = transformed_object.shape
 
         if not overlap:
-            object_position = calculate_position_without_overlap(shape, boxes, image_size)
+            object_position, empty_positions = calculate_position_without_overlap(empty_positions, shape, boxes, image_size)
+            if object_position is None:
+                continue
         else:
             object_position = calculate_position(shape, image_size)
-
-        if object_position is None:
-            continue
 
         # The bounding box inside the image where we want to add the object
         bounding_box = [object_position[1], object_position[0], object_position[1] + shape[1] - 1, 

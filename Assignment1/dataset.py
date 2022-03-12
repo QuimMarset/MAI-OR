@@ -4,8 +4,7 @@ import time
 import random
 from data_augmentation_utils import *
 from load_utils import *
-from other_utils import to_one_hot, scale_bounding_box
-from enum import IntEnum
+from other_utils import *
 
 
 class Dataset:
@@ -51,26 +50,6 @@ class Dataset:
             batch_classes[index] = to_one_hot(classes, self.num_classes, self.classes_dict)
 
         return batch_images, batch_classes
-
-
-class AugmentationMode(IntEnum):
-    NoAugmentation = 1
-    Augmentation = 2
-    AugmentationOverlap = 3
-    AugmentationTransform = 4
-    AugmentationSameProportion = 5
-
-    def __str__(self):
-        if self == AugmentationMode.NoAugmentation:
-            return "no augmentation"
-        elif self == AugmentationMode.Augmentation:
-            return "augmentation without overlapping"
-        elif self == AugmentationMode.AugmentationOverlap:
-            return "augmentation with overlapping"
-        elif self == AugmentationMode.AugmentationTransform:
-            return "augmentation transforming the object"
-        elif self == AugmentationMode.AugmentationSameProportion:
-            return "augmentation keeping proportions"
 
 
 class TrainDataset(Dataset):

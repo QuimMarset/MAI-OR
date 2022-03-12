@@ -19,11 +19,27 @@ def create_mobile_model(image_size, num_classes, fine_tune):
 
 
 def create_resnet_model(image_size, num_classes, fine_tune):
-    pass
+    input_shape = (image_size, image_size, 3)
+    resnet = keras.applications.Res50(input_shape, include_top=False, pooling='avg')
+    resnet.trainable = fine_tune
+
+    input = keras.Input(input_shape)
+    extracted_features = resnet(input)
+    dropout = keras.layers.Dropout(0.2)(extracted_features)
+    probabilities = keras.layers.Dense(num_classes, activation='sigmoid')(dropout)
+    return keras.Model(input, probabilities)
 
 
 def create_inception_model(image_size, num_classes, fine_tune):
-    pass
+    input_shape = (image_size, image_size, 3)
+    inception = keras.applications.InceptionV3(input_shape, include_top=False, pooling='avg')
+    inception.trainable = fine_tune
+
+    input = keras.Input(input_shape)
+    extracted_features = inception(input)
+    dropout = keras.layers.Dropout(0.2)(extracted_features)
+    probabilities = keras.layers.Dense(num_classes, activation='sigmoid')(dropout)
+    return keras.Model(input, probabilities)
 
 
 def create_model(model_name, image_size, num_classes, fine_trune=False):
