@@ -11,7 +11,7 @@ def to_one_hot(classes, num_classes, classes_dict):
 
 def get_box_from_mask(mask):
     indices = np.where(mask == 1.0)
-    return [min(indices[1]), min(indices[0]), max(indices[1]), max(indices[0])]
+    return [min(indices[1]), indices[0][0], max(indices[1]), indices[0][-1]]
 
 
 def scale_bounding_box(bounding_box, image_size, original_width, original_height):

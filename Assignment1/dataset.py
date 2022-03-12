@@ -70,6 +70,8 @@ class TrainDataset(Dataset):
         batch_images = np.zeros((batch_size, self.image_size, self.image_size, 3))
         batch_classes = np.zeros((batch_size, self.num_classes))
 
+        num_batch_placed = 0
+
         for (index, image_name) in enumerate(batch_names):
             image = read_image(self.images_path, image_name, self.image_size)
             classes, boxes, width, height = read_annotation_file(self.annotations_path, image_name)
@@ -77,10 +79,12 @@ class TrainDataset(Dataset):
             if self.augmentation_mode > AugmentationMode.NoAugmentation and random.random() < self.prob_augment:
                 scaled_boxes = [scale_bounding_box(bb, self.image_size, width, height) for bb in boxes]
 
-                image, classes = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, 
+                image, classes, num_placed = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, 
                     self.num_to_place, self.overlap, self.image_size)
+
+                num_batch_placed += num_placed
             
             batch_images[index] = image
             batch_classes[index] = to_one_hot(classes, self.num_classes, self.classes_dict)
 
-        return batch_images, batch_classes
+        return batch_images, batch_classes, num_batch_placed/batch_size

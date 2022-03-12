@@ -5,53 +5,68 @@ from load_utils import get_segmentation, save_segmentations, read_image, read_an
 from other_utils import get_box_from_mask
 
 
-def extract_segmentations_image(image_path, segmentations_path, image_name, bounding_boxes, image_size):
-    segmentation_image = get_segmentation(segmentations_path, image_name)
+class_colors_dict = {
+    8388608: 'aeroplane', 32768: 'bicycle', 8421376: 'bird', 128: 'boat', 8388736: 'bottle', 32896: 'bus', 
+    8421504: 'car', 4194304: 'cat', 12582912: 'chair', 4227072: 'cow', 12615680: 'diningtable', 4194432: 'dog', 
+    12583040: 'horse', 4227200: 'motorbike', 12615808: 'person', 16384: 'pottedplant', 8404992: 'sheep', 
+    49152: 'sofa', 8437760: 'train', 16512: 'tvmonitor', 14737600: 'border'
+}
+
+
+def color2idx(image):
+    return image[:, :, 0]*256**2 + image[:, :, 1]*256 + image[:, :, 2]
+
+
+def extract_segmentations_image(image_path, seg_objects_path, seg_classes_path, image_name, image_size):
+    seg_objects = get_segmentation(seg_objects_path, image_name)
+    seg_classes = get_segmentation(seg_classes_path, image_name)
+
+    seg_objects = color2idx(seg_objects)
+    seg_classes = color2idx(seg_classes)
+
     image = read_image(image_path, image_name, image_size)
 
     objects_plus_masks = []
+    classes = []
 
-    for bounding_box in bounding_boxes:
+    class_colors_indices = np.unique(seg_classes)
+    # Remove background and object border colors
+    class_colors_indices = class_colors_indices[1:-1]
 
-        slice_rows = slice(bounding_box[1], bounding_box[3] + 1)
-        slice_columns = slice(bounding_box[0], bounding_box[2] + 1)
+    for class_color_index in class_colors_indices:
 
-        segmentation_subimage = segmentation_image[slice_rows, slice_columns]
-        # Remove pixels with value 0 (i.e. background) and 220 (i.e. object border)
-        filtered_subimage = segmentation_subimage[(segmentation_subimage > 0) & (segmentation_subimage < 220)]
+        class_name = class_colors_dict[class_color_index]
 
-        values, counts = np.unique(filtered_subimage, return_counts=True)
-        # Pick the color with the highest number of pixels, assuming it the object contained in the bounding box
-        value = values[np.argmax(counts)]
+        class_objects = (seg_classes == class_color_index).astype(np.int32) * seg_objects
 
-        mask = (segmentation_image == value).astype(np.float32)
-        # The original image is resized, so is the mask to extract the object
-        mask = cv2.resize(mask, (image_size, image_size), interpolation=cv2.INTER_NEAREST)
-        
-        # Given that some bounding boxes contain more objects, stretch it to only contain that object
-        box = get_box_from_mask(mask)
-        slice_box_rows = slice(box[1], box[3] + 1)
-        slice_box_columns = slice(box[0], box[2] + 1)
-        
-        extracted_object = image*np.repeat(np.expand_dims(mask, axis=-1), 3, axis=-1)
-        extracted_object = extracted_object[slice_box_rows, slice_box_columns]
-        mask = mask[slice_box_rows, slice_box_columns]
+        class_objects_colors = np.unique(class_objects)
+        # Remove background color
+        class_objects_colors = class_objects_colors[1:]
 
-        object_plus_mask = np.concatenate((extracted_object, np.expand_dims(mask, axis=-1)), axis=-1)
-        objects_plus_masks.append(object_plus_mask)
-    
-    return objects_plus_masks
+        for object_color in class_objects_colors:
+
+            mask = (class_objects == object_color).astype(np.uint8)
+            mask = cv2.resize(mask, (image_size, image_size), interpolation=cv2.INTER_NEAREST)
+
+            x_min, y_min, x_max, y_max = get_box_from_mask(mask)
+
+            mask = np.expand_dims(mask[y_min:y_max+1, x_min:x_max+1], axis=-1)
+            object = image[y_min:y_max+1, x_min:x_max+1]
+            object_plus_mask = np.concatenate([object, mask], axis=-1)
+
+            objects_plus_masks.append(object_plus_mask)
+            classes.append(class_name)
+
+    return objects_plus_masks, classes
 
 
-def extract_segmentations(images_path, segmentations_path, annotations_path, image_size):
-    image_names = [image_file[:-4] for image_file in os.listdir(segmentations_path)]
-
+def extract_segmentations(images_path, seg_objects_path, seg_classes_path, image_size):
     segmentation_objects = {}
+    image_names = [image_file[:-4] for image_file in os.listdir(seg_objects_path)]
 
     for image_name in image_names:
-        classes, bounding_boxes, _, _ = read_annotation_file(annotations_path, image_name)
-
-        objects = extract_segmentations_image(images_path, segmentations_path, image_name, bounding_boxes, image_size)
+        objects, classes = extract_segmentations_image(images_path, seg_objects_path, seg_classes_path, 
+            image_name, image_size)
         segmentation_objects[image_name] = (objects, classes)
 
     return segmentation_objects

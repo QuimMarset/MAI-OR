@@ -8,7 +8,7 @@ from load_utils import read_annotation_file
 
 
 def rotate_(object, mask):
-    rotation_angle = np.random.randint(-15, 15)
+    rotation_angle = np.random.randint(-20, 20)
     rotated_object = transform.rotate(object, rotation_angle, resize=True)
     rotated_mask = transform.rotate(mask, rotation_angle, resize=True, order=0)
     return rotated_object, rotated_mask
@@ -20,8 +20,12 @@ def scale_(object, mask, image_size):
     max_dim = max(object.shape[0], object.shape[1])
 
     if max_dim > image_size or max_dim*min_factor:
-        min_factor = (image_size - round(image_size/20))/max_dim
-        max_factor = (image_size - round(image_size/10))/max_dim
+        min_factor = (image_size*0.2)/max_dim
+        max_factor = (image_size*0.5)/max_dim
+
+    elif max_dim > 0.75*image_size:
+        min_factor = 0.5
+        max_factor = 0.8
 
     elif max_dim < image_size and max_dim*max_factor > image_size:
         max_factor = 1.0
@@ -51,8 +55,8 @@ def transform_(object, mask, image_size):
 def calculate_position(object_shape, image_size):
     max_height = image_size - object_shape[0]
     max_width = image_size - object_shape[1]
-    row = np.random.randint(0, max_height)
-    col = np.random.randint(0, max_width)
+    row = np.random.randint(0, max_height+1)
+    col = np.random.randint(0, max_width+1)
     return row, col
 
 
@@ -98,7 +102,7 @@ def generate_object_boxes(object_shape, image_size, num_boxes):
     return boxes
 
 
-def calculate_position_without_overlap(object_shape, image_boxes, image_size, max_tries=10):
+def calculate_position_without_overlap(object_shape, image_boxes, image_size, max_tries=20):
     object_boxes = generate_object_boxes(object_shape, image_size, max_tries)
     return check_overlap(image_boxes, object_boxes)
 
@@ -112,19 +116,15 @@ def add_object_to_image(image, object, position, mask):
     slice_row = slice(row, row + height)
     slice_col = slice(col, col + width)
 
-    mask = np.repeat(np.expand_dims(mask, axis=-1), 3, axis=-1)
+    mask = np.expand_dims(mask, axis=-1)
     image[slice_row, slice_col] = image[slice_row, slice_col]*(1 - mask) + object*mask
     return image
 
 
 def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size):
     num_placed = 0
-    num_tries = 0
-    max_tries = num_to_place
 
-    while num_placed < num_to_place and num_tries < max_tries:
-        num_tries += 1
-
+    for _ in range(num_to_place):
         index = np.random.choice(len(segmentation_objects))
         objects_plus_masks, classes_names, _ = segmentation_objects[index]
         
@@ -152,4 +152,4 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
         classes.append(class_name)
         boxes.append(bounding_box)
 
-    return image, classes
+    return image, classes, num_placed

@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 from dataset import *
-from generator import ImageGenerator
+from generator import ImageGenerator, TrainImageGenerator
 from train import Trainer
 from load_utils import *
 from segmentation_utils import extract_segmentations, filter_segmentations_train
@@ -16,7 +16,8 @@ if __name__ == "__main__":
 
     root_path = "./Assignment1"
     train_val_path = os.path.join(root_path, 'VOCtrainval_06-Nov-2007', 'VOCdevkit', 'VOC2007')
-    segmentations_path = os.path.join(train_val_path, "SegmentationObject")
+    seg_objects_path = os.path.join(train_val_path, "SegmentationObject")
+    seg_classes_path = os.path.join(train_val_path, "SegmentationClass")
     annotations_path = os.path.join(train_val_path, "Annotations")
     images_path = os.path.join(train_val_path, "JPEGImages")
 
@@ -25,28 +26,28 @@ if __name__ == "__main__":
     results_path = os.path.join(root_path, 'results', model_name)
     model_path = os.path.join(root_path, 'models')
 
+    train_split_path = os.path.join(root_path, 'voc_train.txt')
+    val_split_path = os.path.join(root_path, 'voc_val.txt')
+
     pickle_path = os.path.join(root_path, "segmentations.pkl")
 
     seed = 1412
     image_size = 224
     num_classes = 20
-    val_percentage = 0.2
     prob_augment = 0.5
 
     batch_size = 32
     num_epochs = 5
 
-    num_to_place = 3
+    num_to_place = 6
     augmentation_mode = AugmentationMode.AugmentationTransform
     overlap = True
 
     # ==========================
-    # List images
+    # Read train and val split
     # ==========================
 
-    images_names = [image_file[:-4] for image_file in os.listdir(images_path)]
-    random.Random(seed).shuffle(images_names)
-    num_images = len(images_names)
+    train_names, val_names = read_train_val_split(train_split_path, val_split_path)
 
     # ==========================
     # Get segmentation objects
@@ -56,26 +57,24 @@ if __name__ == "__main__":
         create_results_folder(results_path)
 
     if not exists_path(pickle_path):
-        segmentation_objects = extract_segmentations(images_path, segmentations_path, annotations_path, image_size)
+        segmentation_objects = extract_segmentations(images_path, seg_objects_path, seg_classes_path, image_size)
         save_segmentations(pickle_path, segmentation_objects)
     else:
         segmentation_objects = load_segmentations_pickle(pickle_path)
 
+    train_segmentations = filter_segmentations_train(segmentation_objects, train_names)
+    del segmentation_objects
+
     # ==========================
     # Create train and val sets
     # ==========================
-
-    train_names, val_names = create_train_val_split(images_names, val_percentage, seed)
-
-    train_segmentations = filter_segmentations_train(segmentation_objects, train_names)
-    del segmentation_objects
 
     train_dataset = TrainDataset(images_path, annotations_path, train_names, image_size, train_segmentations, 
         augmentation_mode, num_to_place, prob_augment, seed)
 
     val_dataset = Dataset(images_path, annotations_path, val_names, image_size, seed)
 
-    train_generator = ImageGenerator(batch_size, train_dataset, seed)
+    train_generator = TrainImageGenerator(batch_size, train_dataset, seed)
     val_generator = ImageGenerator(batch_size, val_dataset, seed)
 
     # ==========================

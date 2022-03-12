@@ -46,7 +46,8 @@ def exists_segmentation(segmentations_path, image_name):
 
 def get_segmentation(segmentations_path, image_name):
     path = os.path.join(segmentations_path, f'{image_name}.png')
-    segmentation = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    segmentation = cv2.imread(path)
+    segmentation = cv2.cvtColor(segmentation, cv2.COLOR_BGR2RGB)
     return segmentation
 
 
@@ -65,23 +66,17 @@ def load_segmentations_pickle(path):
     return segmentation_objects
 
 
-def create_train_val_split(image_names, val_percentage, seed):
-    np.random.seed(seed)
-    
-    num_images = len(image_names)
-    val_indices = np.random.randint(0, num_images, int(num_images*val_percentage))
-    train_val_split = np.zeros(num_images)
-    train_val_split[val_indices] = 1
+def read_split_names(path):
+    split_names = []
+    with open(path, 'r') as file:
+        for line in file.readlines():
+            split_names.append(line.strip())
+    return split_names
 
-    train_names = []
-    val_names = []
 
-    for (index, image_name) in enumerate(image_names):
-        if train_val_split[index]:
-            val_names.append(image_name)
-        else:
-            train_names.append(image_name)
-
+def read_train_val_split(train_split_path, val_split_path):
+    train_names = read_split_names(train_split_path)
+    val_names = read_split_names(val_split_path)
     return train_names, val_names
 
 
