@@ -17,7 +17,7 @@ def color2idx(image):
     return image[:, :, 0]*256**2 + image[:, :, 1]*256 + image[:, :, 2]
 
 
-def extract_segmentations_image(image_path, seg_objects_path, seg_classes_path, image_name, image_size):
+def extract_segmentations_image(segmentations_list, image_path, seg_objects_path, seg_classes_path, image_name, image_size):
     seg_objects = get_segmentation(seg_objects_path, image_name)
     seg_classes = get_segmentation(seg_classes_path, image_name)
 
@@ -25,9 +25,6 @@ def extract_segmentations_image(image_path, seg_objects_path, seg_classes_path, 
     seg_classes = color2idx(seg_classes)
 
     image = read_image(image_path, image_name, image_size)
-
-    objects_plus_masks = []
-    classes = []
 
     class_colors_indices = np.unique(seg_classes)
     # Remove background and object border colors
@@ -54,27 +51,47 @@ def extract_segmentations_image(image_path, seg_objects_path, seg_classes_path, 
             object = image[y_min:y_max+1, x_min:x_max+1]
             object_plus_mask = np.concatenate([object, mask], axis=-1)
 
-            objects_plus_masks.append(object_plus_mask)
-            classes.append(class_name)
-
-    return objects_plus_masks, classes
+            segmentations_list.append((object_plus_mask, class_name))
 
 
-def extract_segmentations(images_path, seg_objects_path, seg_classes_path, image_size):
-    segmentation_objects = {}
+def extract_train_segmentations(images_path, seg_objects_path, seg_classes_path, train_names, image_size):
+    segmentation_objects = []
     image_names = [image_file[:-4] for image_file in os.listdir(seg_objects_path)]
 
     for image_name in image_names:
-        objects, classes = extract_segmentations_image(images_path, seg_objects_path, seg_classes_path, 
-            image_name, image_size)
-        segmentation_objects[image_name] = (objects, classes)
+        if image_name in train_names:
+            extract_segmentations_image(segmentation_objects, images_path, seg_objects_path, 
+                seg_classes_path, image_name, image_size)
 
     return segmentation_objects
 
 
-def filter_segmentations_train(segmentation_objects, train_names):
-    train_segmentations = []
-    for segmentation_name in segmentation_objects.keys():
-        if segmentation_name in train_names:
-            train_segmentations.append((*segmentation_objects[segmentation_name], segmentation_name))
-    return train_segmentations
+def get_class_objects(segmentation_objects, desired_label):
+    objects = []
+
+    for segmentation_object in segmentation_objects:
+        (object, label) = segmentation_object
+        if label == desired_label:
+            objects.append(object)
+
+    return objects
+
+
+def sort_objects_to_balance(train_classes, segmentation_objects):
+    labels = list(train_classes.keys())
+    counts = list(train_classes.values())
+    max_ocurrences = round(np.max(counts)/3)
+    max_label = labels[np.argmax(counts)]
+    place_per_label = {}
+    objects_per_label = {}
+
+    for (label, label_counts) in zip(labels, counts):
+        if label == max_label:
+            num_to_place = 0
+        else:
+            num_to_place = max_ocurrences - label_counts
+
+        place_per_label[label] = num_to_place
+        objects_per_label[label] = get_class_objects(segmentation_objects, label)
+
+    return place_per_label, objects_per_label

@@ -55,15 +55,15 @@ def exists_path(path):
     return os.path.exists(path)
 
 
-def save_segmentations(path, segmentation_objects):
-    with open(path, "wb") as file:
-        pickle.dump(segmentation_objects, file)
-
-
-def load_segmentations_pickle(path):
+def load_pickle_dict(path):
     with open(path, "rb") as file:
-        segmentation_objects = pickle.load(file)
-    return segmentation_objects
+        dictionary = pickle.load(file)
+    return dictionary
+
+
+def save_dict_to_pickle(path, dictionary):
+    with open(path, "wb") as file:
+        pickle.dump(dictionary, file)
 
 
 def read_split_names(path):
@@ -82,3 +82,15 @@ def read_train_val_split(train_split_path, val_split_path):
 
 def create_results_folder(path):
     os.makedirs(path, exist_ok=True)
+
+
+def extract_train_classes_counts(annotations_path, image_names):
+    labels_counts = {}
+
+    for image_name in image_names:
+        classes, _, _, _ = read_annotation_file(annotations_path, image_name)
+
+        for class_name in classes:
+            labels_counts[class_name] = labels_counts.get(class_name, 0) + 1
+
+    return labels_counts

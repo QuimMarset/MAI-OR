@@ -1,10 +1,10 @@
 import os
 import matplotlib.pyplot as plt
 from dataset import *
-from generator import ImageGenerator, TrainImageGenerator
+from generator import ImageGenerator, TrainBalancedImageGenerator
 from train import Trainer
 from load_utils import *
-from segmentation_utils import extract_segmentations, filter_segmentations_train
+from segmentation_utils import *
 from model_utils import mobile_name, resnet_name, inception_name
 
 
@@ -31,13 +31,15 @@ if __name__ == "__main__":
 
     pickle_path = os.path.join(root_path, "segmentations.pkl")
 
+    train_classes_counts_path = os.path.join(root_path, "trian_classes_counts.pkl")
+
     seed = 1412
     image_size = 224
     num_classes = 20
     prob_augment = 0.5
 
     batch_size = 32
-    num_epochs = 5
+    num_epochs = 1
 
     num_to_place = 6
     augmentation_mode = AugmentationMode.AugmentationTransform
@@ -50,6 +52,16 @@ if __name__ == "__main__":
     train_names, val_names = read_train_val_split(train_split_path, val_split_path)
 
     # ==========================
+    # Get train class proportions
+    # ==========================
+
+    if not exists_path(train_classes_counts_path):
+        train_classes_counts = extract_train_classes_counts(annotations_path, train_names)
+        save_dict_to_pickle(train_classes_counts_path, train_classes_counts)
+    else:
+        train_classes_counts = load_pickle_dict(train_classes_counts_path)
+
+    # ==========================
     # Get segmentation objects
     # ==========================
 
@@ -57,24 +69,23 @@ if __name__ == "__main__":
         create_results_folder(results_path)
 
     if not exists_path(pickle_path):
-        segmentation_objects = extract_segmentations(images_path, seg_objects_path, seg_classes_path, image_size)
-        save_segmentations(pickle_path, segmentation_objects)
+        train_segmentations = extract_train_segmentations(images_path, seg_objects_path, seg_classes_path, train_names, image_size)
+        save_dict_to_pickle(pickle_path, train_segmentations)
     else:
-        segmentation_objects = load_segmentations_pickle(pickle_path)
+        train_segmentations = load_pickle_dict(pickle_path)
 
-    train_segmentations = filter_segmentations_train(segmentation_objects, train_names)
-    del segmentation_objects
+    place_per_label, objects_per_label = sort_objects_to_balance(train_classes_counts, train_segmentations)
 
     # ==========================
     # Create train and val sets
     # ==========================
 
-    train_dataset = TrainDataset(images_path, annotations_path, train_names, image_size, train_segmentations, 
-        augmentation_mode, num_to_place, prob_augment, seed)
+    train_dataset = TrainBalancedDataset(images_path, annotations_path, train_names, image_size, place_per_label, objects_per_label, 
+        augmentation_mode, seed)
 
     val_dataset = Dataset(images_path, annotations_path, val_names, image_size, seed)
 
-    train_generator = TrainImageGenerator(batch_size, train_dataset, seed)
+    train_generator = TrainBalancedImageGenerator(batch_size, train_dataset, num_classes, seed)
     val_generator = ImageGenerator(batch_size, val_dataset, seed)
 
     # ==========================
@@ -87,3 +98,5 @@ if __name__ == "__main__":
     experiment_name_title = str(augmentation_mode.name) + f" placing {num_to_place} objects"
 
     trainer.train(num_epochs, train_generator, val_generator, experiment_name_file, experiment_name_title)
+
+    print("???")

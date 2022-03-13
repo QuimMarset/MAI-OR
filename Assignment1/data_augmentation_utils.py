@@ -1,10 +1,6 @@
 import numpy as np
-import cv2
 from skimage import transform
 from other_utils import get_box_from_mask
-import os
-from other_utils import scale_bounding_box
-from load_utils import read_annotation_file
 
 
 def rotate_(object, mask):
@@ -126,21 +122,18 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
 
     for _ in range(num_to_place):
         index = np.random.choice(len(segmentation_objects))
-        objects_plus_masks, classes_names, _ = segmentation_objects[index]
+        object_plus_mask, class_name, _ = segmentation_objects[index]
         
-        index2 = np.random.choice(len(objects_plus_masks))
-        object_plus_mask = objects_plus_masks[index2]
-        class_name = classes_names[index2]
-
         transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
         shape = transformed_mask.shape
 
         if not overlap:
             object_position = calculate_position_without_overlap(shape, boxes, image_size)
-            if object_position is None:
-                continue
         else:
             object_position = calculate_position(shape, image_size)
+
+        if object_position is None:
+            continue
 
         # The bounding box inside the image where we want to add the object
         bounding_box = [object_position[1], object_position[0], object_position[1] + shape[1] - 1, 
@@ -148,8 +141,45 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
 
         num_placed += 1
 
-        image = add_object_to_image(image, transformed_object, object_position, transformed_mask)
+        image[:] = add_object_to_image(image, transformed_object, object_position, transformed_mask)
         classes.append(class_name)
         boxes.append(bounding_box)
 
-    return image, classes, num_placed
+    return num_placed
+
+
+
+def corrupt_image_same_proportion(image, classes, boxes, segmentation_objects, num_to_place, place_per_label, overlap, image_size):
+    labels = list(place_per_label.keys())
+    num_placed = 0
+
+    for _ in range(num_to_place + 1):
+        index = np.random.choice(len(labels))
+        label = labels[index]
+
+        index_2 = np.random.choice(len(segmentation_objects[label]))
+        object_plus_mask = segmentation_objects[label][index_2]
+
+        transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
+        shape = transformed_mask.shape
+
+        if not overlap:
+            object_position = calculate_position_without_overlap(shape, boxes, image_size)
+        else:
+            object_position = calculate_position(shape, image_size)
+        
+        if object_position is None:
+                continue
+
+        # The bounding box inside the image where we want to add the object
+        bounding_box = [object_position[1], object_position[0], object_position[1] + shape[1] - 1, 
+            object_position[0] + shape[0] - 1]
+
+        num_placed += 1
+        place_per_label[label] -= 1
+
+        image[:] = add_object_to_image(image, transformed_object, object_position, transformed_mask)
+        classes.append(label)
+        boxes.append(bounding_box)
+
+    return num_placed
