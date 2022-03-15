@@ -6,10 +6,10 @@ resnet_name = 'ResNet50'
 inception_name = 'Inception-v3'
 
 
-def create_mobile_model(image_size, num_classes, fine_tune):
+def create_mobile_model(image_size, num_classes):
     input_shape = (image_size, image_size, 3)
     mobile_net = keras.applications.MobileNetV2(input_shape, include_top=False, pooling='avg')
-    mobile_net.trainable = fine_tune
+    mobile_net.trainable = False
 
     input = keras.Input(input_shape)
     extracted_features = mobile_net(input)
@@ -18,10 +18,10 @@ def create_mobile_model(image_size, num_classes, fine_tune):
     return keras.Model(input, probabilities)
 
 
-def create_resnet_model(image_size, num_classes, fine_tune):
+def create_resnet_model(image_size, num_classes):
     input_shape = (image_size, image_size, 3)
     resnet = keras.applications.ResNet50(input_shape=input_shape, include_top=False, pooling='avg')
-    resnet.trainable = fine_tune
+    resnet.trainable = False
 
     input = keras.Input(input_shape)
     extracted_features = resnet(input)
@@ -30,10 +30,10 @@ def create_resnet_model(image_size, num_classes, fine_tune):
     return keras.Model(input, probabilities)
 
 
-def create_inception_model(image_size, num_classes, fine_tune):
+def create_inception_model(image_size, num_classes):
     input_shape = (image_size, image_size, 3)
     inception = keras.applications.InceptionV3(input_shape, include_top=False, pooling='avg')
-    inception.trainable = fine_tune
+    inception.trainable = False
 
     input = keras.Input(input_shape)
     extracted_features = inception(input)
@@ -42,7 +42,7 @@ def create_inception_model(image_size, num_classes, fine_tune):
     return keras.Model(input, probabilities)
 
 
-def create_model(model_name, image_size, num_classes, fine_trune=False):
+def create_model(model_name, image_size, num_classes):
     if model_name == mobile_name:
         function = create_mobile_model
     elif model_name == resnet_name:
@@ -52,4 +52,4 @@ def create_model(model_name, image_size, num_classes, fine_trune=False):
     else:
         raise KeyError(model_name)
 
-    return function(image_size, num_classes, fine_trune)
+    return function(image_size, num_classes)

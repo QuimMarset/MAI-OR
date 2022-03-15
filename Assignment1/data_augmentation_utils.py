@@ -1,6 +1,7 @@
 import numpy as np
 from skimage import transform
 from other_utils import get_box_from_mask
+import random
 
 
 def rotate_(object, mask):
@@ -98,7 +99,7 @@ def generate_object_boxes(object_shape, image_size, num_boxes):
     return boxes
 
 
-def calculate_position_without_overlap(object_shape, image_boxes, image_size, max_tries=20):
+def calculate_position_without_overlap(object_shape, image_boxes, image_size, max_tries=30):
     object_boxes = generate_object_boxes(object_shape, image_size, max_tries)
     return check_overlap(image_boxes, object_boxes)
 
@@ -117,20 +118,28 @@ def add_object_to_image(image, object, position, mask):
     return image
 
 
-def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, overlap, image_size):
+def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, augment_mode, image_size):
     num_placed = 0
 
-    for _ in range(num_to_place):
-        index = np.random.choice(len(segmentation_objects))
-        object_plus_mask, class_name, _ = segmentation_objects[index]
-        
-        transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
-        shape = transformed_mask.shape
+    num_iterations = num_to_place*2
+    if not augment_mode.permits_transformations():
+        num_iterations += 2
 
-        if not overlap:
-            object_position = calculate_position_without_overlap(shape, boxes, image_size)
-        else:
+    for _ in range(num_iterations):
+        index = np.random.choice(len(segmentation_objects))
+        object_plus_mask, class_name = segmentation_objects[index]
+        object = object_plus_mask[:, :, :3]
+        mask = object_plus_mask[:, :, 3]
+
+        if augment_mode.permits_transformations():
+            object, mask = transform_(object, mask, image_size)
+            
+        shape = mask.shape
+        
+        if augment_mode.permits_overlap():
             object_position = calculate_position(shape, image_size)
+        else:
+            object_position = calculate_position_without_overlap(shape, boxes, image_size)
 
         if object_position is None:
             continue
@@ -141,32 +150,37 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, ove
 
         num_placed += 1
 
-        image[:] = add_object_to_image(image, transformed_object, object_position, transformed_mask)
+        image[:] = add_object_to_image(image, object, object_position, mask)
         classes.append(class_name)
         boxes.append(bounding_box)
+
+        if num_placed == num_to_place:
+            return num_placed
 
     return num_placed
 
 
 
-def corrupt_image_same_proportion(image, classes, boxes, segmentation_objects, num_to_place, place_per_label, overlap, image_size):
-    labels = list(place_per_label.keys())
+def corrupt_image_same_proportion(image, classes, boxes, segmentation_objects, num_to_place, place_per_label, augment_mode, image_size):
     num_placed = 0
 
-    for _ in range(num_to_place + 1):
-        index = np.random.choice(len(labels))
-        label = labels[index]
+    for _ in range(num_to_place*2):
+        label = random.sample(place_per_label.keys(), 1)[0]
 
-        index_2 = np.random.choice(len(segmentation_objects[label]))
-        object_plus_mask = segmentation_objects[label][index_2]
+        index = np.random.choice(len(segmentation_objects[label]))
+        object_plus_mask = segmentation_objects[label][index]
+        object = object_plus_mask[:, :, :3]
+        mask = object_plus_mask[:, :, 3]
 
-        transformed_object, transformed_mask = transform_(object_plus_mask[:, :, :3], object_plus_mask[:, :, 3], image_size)
-        shape = transformed_mask.shape
+        if augment_mode.permits_transformations():
+            object, mask = transform_(object, mask, image_size)
+            
+        shape = mask.shape
 
-        if not overlap:
-            object_position = calculate_position_without_overlap(shape, boxes, image_size)
-        else:
+        if augment_mode.permits_overlap():
             object_position = calculate_position(shape, image_size)
+        else:
+            object_position = calculate_position_without_overlap(shape, boxes, image_size)
         
         if object_position is None:
                 continue
@@ -175,11 +189,19 @@ def corrupt_image_same_proportion(image, classes, boxes, segmentation_objects, n
         bounding_box = [object_position[1], object_position[0], object_position[1] + shape[1] - 1, 
             object_position[0] + shape[0] - 1]
 
-        num_placed += 1
-        place_per_label[label] -= 1
-
-        image[:] = add_object_to_image(image, transformed_object, object_position, transformed_mask)
+        image[:] = add_object_to_image(image, object, object_position, mask)
         classes.append(label)
         boxes.append(bounding_box)
+
+        num_placed += 1
+        place_per_label[label] -= 1
+        if place_per_label[label] == 0:
+            place_per_label.pop(label)
+
+        if not place_per_label:
+            return num_placed
+
+        if num_placed == num_to_place:
+            return num_placed
 
     return num_placed

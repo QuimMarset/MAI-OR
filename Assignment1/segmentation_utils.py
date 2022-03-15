@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import os
-from load_utils import get_segmentation, save_segmentations, read_image, read_annotation_file
+from load_utils import get_segmentation, read_image
 from other_utils import get_box_from_mask
 
 
@@ -77,19 +77,19 @@ def get_class_objects(segmentation_objects, desired_label):
     return objects
 
 
-def sort_objects_to_balance(train_classes, segmentation_objects):
+def sort_objects_to_balance(train_classes, segmentation_objects, fraction):
     labels = list(train_classes.keys())
     counts = list(train_classes.values())
-    max_ocurrences = round(np.max(counts)/3)
+    max_ocurrences = round(np.max(counts)/fraction)
     max_label = labels[np.argmax(counts)]
     place_per_label = {}
     objects_per_label = {}
 
     for (label, label_counts) in zip(labels, counts):
         if label == max_label:
-            num_to_place = 0
+            continue
         else:
-            num_to_place = max_ocurrences - label_counts
+            num_to_place = max(max_ocurrences - label_counts, 0)
 
         place_per_label[label] = num_to_place
         objects_per_label[label] = get_class_objects(segmentation_objects, label)

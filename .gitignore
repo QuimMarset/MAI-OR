@@ -3,3 +3,5 @@ __pycache__/
 VOCtrainval_06-Nov-2007
 VOCtest_06-Nov-2007
 *.pkl
+*.7z
+*.h5

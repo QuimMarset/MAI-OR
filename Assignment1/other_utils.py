@@ -2,8 +2,19 @@ import numpy as np
 from enum import IntEnum
 
 
-def to_one_hot(classes, num_classes, classes_dict):
-    one_hot = np.zeros((num_classes))
+classes_dict = {
+    'aeroplane': 0, 'bicycle': 1, 'bird': 2, 'boat': 3, 'bottle': 4, 'bus': 5, 'car': 6, 
+    'cat': 7, 'chair': 8, 'cow': 9, 'diningtable': 10, 'dog': 11, 'horse': 12, 'motorbike': 13, 
+    'person': 14, 'pottedplant': 15, 'sheep': 16, 'sofa': 17, 'train': 18, 'tvmonitor': 19
+}
+
+def get_num_classes():
+    return 20
+
+
+
+def to_one_hot(classes):
+    one_hot = np.zeros(get_num_classes())
     for class_name in classes:
         one_hot[classes_dict[class_name]] = 1
     return one_hot
@@ -28,8 +39,33 @@ def scale_bounding_box(bounding_box, image_size, original_width, original_height
 
 
 class AugmentationMode(IntEnum):
+    # Without performing data augmentation
     NoAugmentation = 1
+    # Data augmentation without overlap
     Augmentation = 2
-    AugmentationOverlap = 3
-    AugmentationTransform = 4
-    AugmentationSameProportion = 5
+    # Data augmentation without overlap, random position, scaling and rotation
+    AugmentationTransform = 3
+    # Data augmentation without overlap and having same class proportion
+    AugmentationSameProportion = 4
+    # Data augmentation without overlap, random position, scaling and rotation, and same proportion
+    AugmentationTransformSameProportion = 5
+    # Data augmentation permitting overlap
+    AugmentationOverlap = 6
+    # Data augmentation permitting overlap and random position, scaling and rotation
+    AugmentationOverlapTransform = 7
+    # Data augmentation permitting overlap and same class proportion
+    AugmentationOverlapSameProportion = 8
+    # Data augmentation permitting overlap, random transform, and same class proportion
+    AugmentationOverlapTransformSameProportion = 9
+
+    def permits_augmentation(self):
+        return self.value > 1
+
+    def permits_overlap(self):
+        return self.value > 5
+
+    def permits_transformations(self):
+        return self.value == 3 or self.value == 5 or self.value == 7 or self.value == 9
+
+    def maintains_proportion(self):
+        return self.value == 4 or self.value == 5 or self.value == 8 or self.value == 9

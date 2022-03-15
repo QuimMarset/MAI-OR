@@ -14,14 +14,9 @@ class Dataset:
         self.annotations_path = annotations_path
         self.images_names = image_names
         self.num_images = len(image_names)
-
         self.image_size = image_size
-        self.num_classes = 20
         self.seed = seed
-
-        self.classes_dict = {'aeroplane': 0, 'bicycle': 1, 'bird': 2, 'boat': 3, 'bottle': 4, 'bus': 5, 'car': 6, 
-            'cat': 7, 'chair': 8, 'cow': 9, 'diningtable': 10, 'dog': 11, 'horse': 12, 'motorbike': 13, 
-            'person': 14, 'pottedplant': 15, 'sheep': 16, 'sofa': 17, 'train': 18, 'tvmonitor': 19}
+        self.num_classes = get_num_classes()
 
 
     def get_batch(self, index, batch_size):
@@ -31,10 +26,6 @@ class Dataset:
 
     def shuffle_paths(self):
         random.Random(self.seed).shuffle(self.images_names)
-
-    
-    def get_num_images(self):
-        return self.num_images
 
 
     def load_batch(self, batch_names):
@@ -47,7 +38,7 @@ class Dataset:
             classes, _, _, _ = read_annotation_file(self.annotations_path, image_name)
             
             batch_images[index] = image
-            batch_classes[index] = to_one_hot(classes, self.num_classes, self.classes_dict)
+            batch_classes[index] = to_one_hot(classes)
 
         return batch_images, batch_classes
 
@@ -62,7 +53,6 @@ class TrainDataset(Dataset):
         self.augmentation_mode = augmentation_mode
         self.num_to_place = num_to_place
         self.prob_augment = prob_augment
-        self.overlap = augmentation_mode == AugmentationMode.AugmentationOverlap
 
 
     def load_batch(self, batch_names):
@@ -71,23 +61,28 @@ class TrainDataset(Dataset):
         batch_classes = np.zeros((batch_size, self.num_classes))
 
         num_batch_placed = 0
+        num_batch_augmented = 0
 
         for (index, image_name) in enumerate(batch_names):
             image = read_image(self.images_path, image_name, self.image_size)
             classes, boxes, width, height = read_annotation_file(self.annotations_path, image_name)
 
-            if self.augmentation_mode > AugmentationMode.NoAugmentation and random.random() < self.prob_augment:
+            if self.augmentation_mode.permits_augmentation() and random.random() < self.prob_augment:
+
                 scaled_boxes = [scale_bounding_box(bb, self.image_size, width, height) for bb in boxes]
 
                 num_placed = corrupt_image(image, classes, scaled_boxes, self.segmentation_objects, 
-                    self.num_to_place, self.overlap, self.image_size)
+                    self.num_to_place, self.augmentation_mode, self.image_size)
 
                 num_batch_placed += num_placed
+                num_batch_augmented += 1
             
             batch_images[index] = image
-            batch_classes[index] = to_one_hot(classes, self.num_classes, self.classes_dict)
+            batch_classes[index] = to_one_hot(classes)
 
-        return batch_images, batch_classes, num_batch_placed/batch_size
+        if num_batch_augmented == 0: num_batch_augmented = 1e-6
+
+        return batch_images, batch_classes, num_batch_placed/num_batch_augmented
 
 
 class TrainBalancedDataset(Dataset):
@@ -97,27 +92,16 @@ class TrainBalancedDataset(Dataset):
         self.segmentation_objects = segmentation_objects
         self.place_per_label = place_per_label
         self.num_to_place = round(np.sum(list(place_per_label.values()))/self.num_images)
-        
-        self.overlap = augmentation_mode == AugmentationMode.AugmentationOverlap
         self.augmentation_mode = augmentation_mode
-
-
-    def to_class_indices(self, classes_names):
-        class_indices = []
-        for class_name in classes_names:
-            class_indices.append(self.classes_dict[class_name])
-        return class_indices
 
 
     def load_batch(self, batch_names):
         batch_size = len(batch_names)
         batch_images = np.zeros((batch_size, self.image_size, self.image_size, 3))
-        batch_classes = np.zeros((batch_size, self.num_classes))
-        batch_classes_counts = []
-
-        place_per_label = self.place_per_label.copy()
+        batch_classes = []
 
         num_batch_placed = 0
+        num_batch_augmented = 0
 
         for (index, image_name) in enumerate(batch_names):
 
@@ -126,14 +110,21 @@ class TrainBalancedDataset(Dataset):
 
             scaled_boxes = [scale_bounding_box(bb, self.image_size, width, height) for bb in boxes]
 
-            if np.sum(list(place_per_label.values())) > 0:
+            if self.place_per_label:
+                
                 num_placed = corrupt_image_same_proportion(image, classes, scaled_boxes, self.segmentation_objects,
-                    self.num_to_place, place_per_label, self.overlap, self.image_size)
+                    self.num_to_place, self.place_per_label, self.augmentation_mode, self.image_size)
 
                 num_batch_placed += num_placed
+                num_batch_augmented += 1
             
             batch_images[index] = image
-            batch_classes[index] = to_one_hot(classes, self.num_classes, self.classes_dict)
-            batch_classes_counts.append(self.to_class_indices(classes))
+            batch_classes.append(classes)
 
-        return batch_images, batch_classes, num_batch_placed/batch_size, batch_classes_counts
+            if num_batch_augmented == 0: num_batch_augmented = 1e-6
+
+        return batch_images, batch_classes, num_batch_placed/num_batch_augmented
+
+    
+    def reset_place_per_label(self, place_per_label):
+        self.place_per_label = place_per_label
