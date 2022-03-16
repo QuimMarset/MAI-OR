@@ -4,7 +4,7 @@ from other_utils import get_box_from_mask
 import random
 
 
-def rotate_(object, mask):
+def rotate_(object, mask, resize=True):
     rotation_angle = np.random.randint(-20, 20)
     rotated_object = transform.rotate(object, rotation_angle, resize=True)
     rotated_mask = transform.rotate(mask, rotation_angle, resize=True, order=0)
@@ -35,6 +35,14 @@ def scale_(object, mask, image_size):
         print(object.shape, scaled_object.shape, scale_factor)
 
     return scaled_object, scaled_mask
+
+
+def only_scale(object, mask, image_size):
+    return scale_(object, mask, image_size)
+
+
+def only_rotate(object, mask, image_size):
+    return rotate_(object, mask, resize=False)
 
 
 def transform_(object, mask, image_size):

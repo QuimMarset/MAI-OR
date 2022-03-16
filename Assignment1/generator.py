@@ -38,20 +38,24 @@ class TrainImageGenerator(ImageGenerator):
             augmen_mode, num_to_place, prob_augment, seed)
         self.num_batches = len(image_names)//self.batch_size
         self.num_placed = 0
+        self.print_num_placed = True
     
 
     def __getitem__(self, idx):
         index = idx * self.batch_size
         batch_images, batch_classes, num_placed = self.dataset_loader.get_batch(index, self.batch_size)
-        self.num_placed += num_placed
+        if self.print_num_placed:
+            self.num_placed += num_placed
         return batch_images, batch_classes
 
     
     def on_epoch_end(self):
         super().on_epoch_end()
-        avg_placed = self.num_placed/self.num_batches
-        print(f'Average epoch placed: {avg_placed:.2f}')
-        self.num_placed = 0
+        if self.print_num_placed:
+            avg_placed = self.num_placed/self.num_batches
+            self.print_num_placed = False
+            print(f'Average epoch placed: {avg_placed:.2f}')
+            self.num_placed = 0
 
 
 class TrainBalancedImageGenerator(TrainImageGenerator):
