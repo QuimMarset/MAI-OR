@@ -5,3 +5,13 @@ VOCtest_06-Nov-2007
 *.pkl
 *.7z
 *.h5
+train2020/
+val_test2020/
+*.json
+cocoapi-master/
+results/
+models/
+*.zip
+segmentations/
+*.jpg
+*.png

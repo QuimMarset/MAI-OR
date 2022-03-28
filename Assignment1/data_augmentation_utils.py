@@ -6,8 +6,8 @@ import random
 
 def rotate_(object, mask, resize=True):
     rotation_angle = np.random.randint(-20, 20)
-    rotated_object = transform.rotate(object, rotation_angle, resize=True)
-    rotated_mask = transform.rotate(mask, rotation_angle, resize=True, order=0)
+    rotated_object = transform.rotate(object, rotation_angle, resize=resize)
+    rotated_mask = transform.rotate(mask, rotation_angle, resize=resize, order=0)
     return rotated_object, rotated_mask
 
 
@@ -130,7 +130,7 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, aug
     num_placed = 0
 
     num_iterations = num_to_place*2
-    if not augment_mode.permits_transformations():
+    if not augment_mode.permits_transformations() and not augment_mode.permits_only_scaling() and not augment_mode.permits_only_scaling():
         num_iterations += 2
 
     for _ in range(num_iterations):
@@ -139,7 +139,11 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, aug
         object = object_plus_mask[:, :, :3]
         mask = object_plus_mask[:, :, 3]
 
-        if augment_mode.permits_transformations():
+        if augment_mode.permits_only_rotation():
+            object, mask = only_rotate(object, mask, image_size)
+        elif augment_mode.permits_only_scaling():
+            object, mask = only_scale(object, mask, image_size)
+        elif augment_mode.permits_transformations():
             object, mask = transform_(object, mask, image_size)
             
         shape = mask.shape
@@ -172,7 +176,11 @@ def corrupt_image(image, classes, boxes, segmentation_objects, num_to_place, aug
 def corrupt_image_same_proportion(image, classes, boxes, segmentation_objects, num_to_place, place_per_label, augment_mode, image_size):
     num_placed = 0
 
-    for _ in range(num_to_place*2):
+    num_iterations = num_to_place*2
+    if not augment_mode.permits_transformations() and not augment_mode.permits_only_scaling() and not augment_mode.permits_only_scaling():
+        num_iterations += 2
+
+    for _ in range(num_iterations):
         label = random.sample(place_per_label.keys(), 1)[0]
 
         index = np.random.choice(len(segmentation_objects[label]))
@@ -180,7 +188,11 @@ def corrupt_image_same_proportion(image, classes, boxes, segmentation_objects, n
         object = object_plus_mask[:, :, :3]
         mask = object_plus_mask[:, :, 3]
 
-        if augment_mode.permits_transformations():
+        if augment_mode.permits_only_rotation():
+            object, mask = only_rotate(object, mask, image_size)
+        elif augment_mode.permits_only_scaling():
+            object, mask = only_scale(object, mask, image_size)
+        elif augment_mode.permits_transformations():
             object, mask = transform_(object, mask, image_size)
             
         shape = mask.shape

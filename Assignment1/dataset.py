@@ -81,7 +81,7 @@ class TrainDataset(Dataset):
             batch_classes[index] = to_one_hot(classes)
 
         if num_batch_augmented == 0: num_batch_augmented = 1e-6
-
+        
         return batch_images, batch_classes, num_batch_placed/num_batch_augmented
 
 
@@ -121,7 +121,7 @@ class TrainBalancedDataset(Dataset):
             batch_images[index] = image
             batch_classes.append(classes)
 
-            if num_batch_augmented == 0: num_batch_augmented = 1e-6
+        if num_batch_augmented == 0: num_batch_augmented = 1e-6
 
         return batch_images, batch_classes, num_batch_placed/num_batch_augmented
 

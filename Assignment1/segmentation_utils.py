@@ -81,17 +81,13 @@ def sort_objects_to_balance(train_classes, segmentation_objects, fraction):
     labels = list(train_classes.keys())
     counts = list(train_classes.values())
     max_ocurrences = round(np.max(counts)/fraction)
-    max_label = labels[np.argmax(counts)]
     place_per_label = {}
     objects_per_label = {}
 
     for (label, label_counts) in zip(labels, counts):
-        if label == max_label:
-            continue
-        else:
-            num_to_place = max(max_ocurrences - label_counts, 0)
-
-        place_per_label[label] = num_to_place
-        objects_per_label[label] = get_class_objects(segmentation_objects, label)
+        num_to_place = max(max_ocurrences - label_counts, 0)
+        if num_to_place > 0:
+            place_per_label[label] = num_to_place
+            objects_per_label[label] = get_class_objects(segmentation_objects, label)
 
     return place_per_label, objects_per_label
