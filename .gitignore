@@ -12,6 +12,8 @@ cocoapi-master/
 results/
 models/
 *.zip
-segmentations/
+fashionpedia/
 *.jpg
 *.png
+mmsegmentation/
+results*/
