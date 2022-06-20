@@ -12,8 +12,11 @@ cocoapi-master/
 results/
 models/
 *.zip
-fashionpedia/
+fashionpedia
+fashionpedia
 *.jpg
 *.png
 mmsegmentation/
 results*/
+processed_data/
+cloth3d++_subset/

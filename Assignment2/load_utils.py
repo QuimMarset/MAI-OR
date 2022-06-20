@@ -37,3 +37,15 @@ def load_json_log(json_log_path):
                 log_dict[epoch][k].append(v)
     
     return log_dict
+
+
+def compute_class_frequencies(json_file, num_classes=46):
+    frequencies = np.zeros(num_classes, dtype=float)
+
+    with open(json_file) as file:
+        data = json.load(file)
+        for annotation_data in data['annotations']:
+            frequencies[annotation_data['category_id'] - 1] += 1
+
+    frequencies /= np.sum(frequencies)
+    return frequencies

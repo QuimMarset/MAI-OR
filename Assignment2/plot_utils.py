@@ -2,9 +2,15 @@ import cv2
 from matplotlib.patches import Patch
 import matplotlib.pyplot as plt
 import os
+import glob
 from colors_labels import *
 import seaborn as sns
-from load_utils import load_json_log
+from load_utils import load_json_log, compute_class_frequencies
+
+
+# ==============================================
+# Functions to plot the inferenced segmentations 
+# ==============================================
 
 
 def colour_segmentation(segmentation):
@@ -63,66 +69,92 @@ def plot_segmentation(image, ground_truth, predicted_segm, path, image_name):
     plt.close()
 
 
-def plot_val_segm_metrics_curve(log_dict, save_path):
-    sns.set_style('dark')
-    epochs = list(log_dict.keys())
-    plt.figure(figsize=(8, 6))
+# ===============================================================================
+# Functions to plot the validation metrics of the different experiments
+# ===============================================================================
 
-    for metric in ['mIoU', 'mAcc', 'aAcc']:
-        plot_epochs = []
-        plot_values = []
-        
+
+def plot_val_segmentation_metric_experiments(log_dicts, save_path, metric_name='mIoU'):
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(10, 6))
+
+    for (i, log_dict) in enumerate(log_dicts):
+        epochs = list(log_dict.keys())
+        mIoU_values = []
         for epoch in epochs:
-            epoch_logs = log_dict[epoch]
-            
-            plot_epochs.append(epoch)
-            plot_values.append(epoch_logs[metric][0])
+            mIoU_values.append(log_dict[epoch][metric_name][0])
+
+        if i == 0:
+            epochs_range = range(1, epochs[-1]+1)
         
-        plt.plot(plot_epochs, plot_values, label=metric, marker='o') 
+        plt.plot(epochs_range, mIoU_values, label=f'Experiment {i+1}', marker='o')
     
-    plt.xticks(plot_epochs)
+    plt.xticks(epochs_range)
     plt.xlabel('Epoch')
-    plt.ylabel('Segmentation metric')
+    plt.ylabel(metric_name)
     plt.legend()
-    plt.title('Validation segmentation metrics')
-    plt.savefig(os.path.join(save_path, 'val_segmentation_metrics.jpg'))
+    plt.title(f'Experiments validation {metric_name}')
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, 'val_mIoU_experiments.png'))
     plt.close()
 
 
-def plot_train_loss_curve(log_dict, save_path):
-    sns.set_style('dark')
-    plt.figure(figsize=(8, 6))
-    plot_iters = []
-    plot_values = []
-    pre_iter = -1
+def plot_val_segmentation_metrics_best_experiment(json_log_path, save_path):
+    sns.set(style="whitegrid")
+    file_path = glob.glob(os.path.join(json_log_path, '*.log.json'))[0]
+    log_dict = load_json_log(file_path)
+    plt.figure(figsize=(10, 6))
 
     epochs = list(log_dict.keys())
-    for epoch in epochs:
-        epoch_logs = log_dict[epoch]
+    epochs_range = range(1, epochs[-1]+1)
 
-        for idx in range(len(epoch_logs['loss'])):
-            if pre_iter > epoch_logs['iter'][idx]:
-                # avoid number of validation iterations
-                continue
-            pre_iter = epoch_logs['iter'][idx]
+    for metric in ['mIoU', 'mDice']:
+        metric_values = []
+        for epoch in epochs:
+            metric_values.append(log_dict[epoch][metric][0])
 
-            plot_iters.append(epoch_logs['iter'][idx])
-            plot_values.append(epoch_logs['loss'][idx])
-
-    plt.xlabel('Iteration')
-    plt.ylabel('Categorical cropss-entropy loss')
-    plt.plot(plot_iters, plot_values, label='Training loss')
+        plt.plot(epochs_range, metric_values, label=f'{metric}', marker='o')
+    
+    plt.xticks(epochs_range)
+    plt.xlabel('Epoch')
+    plt.ylabel('Validation segmentation metric')
     plt.legend()
-    plt.title('Training loss')
-    plt.savefig(os.path.join(save_path, 'train_loss_curve.jpg'))
+    plt.title(f'Best model validation segmentation metrics')
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, 'val_metrics_best_model.png'))
     plt.close()
 
 
-def plot_metrics(json_log_path, save_path):
-    log_dict = load_json_log(json_log_path)
-    plot_train_loss_curve(log_dict, save_path)
-    plot_val_segm_metrics_curve(log_dict, save_path)
+def plot_experiments_metrics(experiments_path, save_path):
+    json_log_paths = glob.glob(os.path.join(experiments_path, '**/*.log.json'))
+    log_dicts = [load_json_log(json_log_path) for json_log_path in json_log_paths]
+    plot_val_segmentation_metric_experiments(log_dicts, save_path)
+
+
+# ================================================
+# Functions to plot the dataset classes statistics
+# ================================================
+
+
+def plot_classes_histogram(json_file_path, save_path, is_train=True):
+    sns.set(style="whitegrid")
+    frequencies = compute_class_frequencies(json_file_path)
+    num_classes = frequencies.shape[0]
+    plt.figure(figsize=(10, 6))
+    plt.bar(range(num_classes), frequencies, label='Class proportion', log=True)
+    plt.xticks([i for i in range(num_classes)], labels[1:], rotation='vertical')
+    plt.ylabel('Class proportion')
+    plt.legend()
+    plt.title(f'Fashionpedia class frequency in the training set')
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, 'train_class_frequencies.png'))
+    plt.close()
 
 
 if __name__ == '__main__':
-    plot_metrics('./results_3/20220409_094929.log.json', './')
+
+    root_path = './'
+    results_path = os.path.join(root_path, 'results')
+
+    #plot_experiments_metrics(results_path, root_path)
+    plot_val_segmentation_metrics_best_experiment(os.path.join(results_path, 'best_model'), root_path)

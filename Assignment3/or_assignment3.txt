@@ -1,0 +1,49 @@
+- Subsampleig de les dades
+- Frames missing els podem ignorar (es surt de la imatge)
+- Model fixe -> Unet 
+- No necessitem estadístics del dataset
+- Necessitem l'agumentació de la 1a pràctica amb màxim 2 objectes (pot ser 0.5 prob d'agumentar o no i a vegades no afegir). Copiar el codi
+- Modificar el codi:
+	- keras examples vision depth estimation (els exemples tenen depth de tot)
+	- Només necessitem la depth de l'objecte no del background (serà 0)
+	- Data loading és el més costós (podem accelerar fent servir workers que afegim en el model fit) Unzip en el drive??
+	- 
+
+- Data: .obj i pc16 no es necessiten (un cop extraiem la depth)
+- 150 sequences???
+- 45k frames igual que al segon lol
+- Molta variabilitat en la data
+- Random selection??? Preseleccionat en base a la pose???
+- Podem guardar els crops fent downsampling o upscaling a 256??
+
+- Tunejar els paràmetres de la importància de cada loss function (el que es demana en l'enunciat)
+- Tunejar en base a un subconjunt de les dades
+- ssim el que té resolució més iportant
+
+- depth data guardar-les en numpy arrays
+- La part de carregar la màscara en el load fins el clip inclòs no es necessita ja que és del dataset que ells utilitzen
+- La data està en metres i necessitem calcular la depth en mm (multiplicar per 1000 per tenir escala com la del codi)
+- Restem la depth minima a la hora de processar la depth i multipliquem per 1000 a la hora de fer el rendering (en el demo_cloth3d)
+- Preprocessing recorrem màscara i calculem average position. Calculem minim i maxim i amb un cert marge de 10 pixels extraiem l'objecte amb un crop. 
+	Si no està sencer apliquem 0 padding per mantenir la mida
+
+- No necessitem la mask per data loading però si per calcular la loss 
+- Multiplicar el resultat del call per la ground-truth mask per evitar problema amb massa 0s pel background. Només volem que es centri en l'objecte.
+Aconseguim així que s'ignori l'efecte del background en el càlcul de backpropagation
+
+
+In the following you will find a few tips regarding the third PB task.
+
+1- The data must be consistent with the last architecture layer. 
+The depth takes values in the range [0 .. max_depth] for each frame where 0 goes to background. 
+Since you multiplied the rendering with 1000, to convert the metric to millimeters, max_depth takes values as big as 500-1000 
+which is not consistent with the last layer activation (tanh):
+
+self.conv_layer = layers.Conv2D(1, (1, 1), padding="same", activation="tanh")
+
+Therefore, you must either remove the last layer activation or normalize the depth values between -1 and 1 
+(for instance by converting back the depth to meters and subtraction of the depth from the mean).
+
+2- The loss must be meaningful. The current cross_entropy loss is not consistent with the above format. 
+You can implement a custom loss based on the losses in the calculate_loss function. Remember one of your tasks is to tune 
+these losses in the claculate_loss (smoothing, ssim and L1).
